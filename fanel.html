@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>호두 봇 관리 패널</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800&display=swap');
+:root{--bg:#0f0d14;--bg2:#161320;--panel:#1e1b28;--panel2:#252233;--line:rgba(255,255,255,0.07);--walnut:#f2a25c;--walnut2:#c97b3d;--text:#ece7f5;--dim:#7c758f;--green:#57f287;--red:#ed4245;--blue:#5865f2;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Pretendard',-apple-system,sans-serif;min-height:100vh;display:flex;}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 800px 600px at 0% 0%,rgba(201,123,61,0.08),transparent 60%);pointer-events:none;}
+
+/* 사이드바 */
+.sidebar{width:240px;background:var(--bg2);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:20px 0;position:fixed;top:0;left:0;bottom:0;z-index:10;}
+.sidebar-logo{display:flex;align-items:center;gap:10px;padding:0 20px 24px;border-bottom:1px solid var(--line);margin-bottom:12px;}
+.logo-icon{width:38px;height:38px;border-radius:50%;background:linear-gradient(145deg,var(--walnut),var(--walnut2));display:flex;align-items:center;justify-content:center;font-size:18px;}
+.logo-text{font-weight:800;font-size:1.05rem;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 20px;color:var(--dim);font-size:0.9rem;font-weight:500;cursor:pointer;border-radius:0;transition:all .15s;border-left:3px solid transparent;}
+.nav-item:hover{color:var(--text);background:rgba(255,255,255,0.04);}
+.nav-item.active{color:var(--walnut);border-left-color:var(--walnut);background:rgba(242,162,92,0.08);}
+.nav-icon{font-size:16px;width:20px;text-align:center;}
+.sidebar-footer{margin-top:auto;padding:16px 20px;border-top:1px solid var(--line);font-size:0.78rem;color:var(--dim);}
+.online-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green);margin-right:6px;box-shadow:0 0 6px var(--green);}
+
+/* 메인 */
+.main{margin-left:240px;flex:1;padding:28px;min-height:100vh;}
+.page{display:none;}
+.page.active{display:block;}
+.page-title{font-size:1.5rem;font-weight:800;margin-bottom:6px;}
+.page-sub{color:var(--dim);font-size:0.9rem;margin-bottom:28px;}
+
+/* 카드 그리드 */
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px;}
+@media(max-width:1100px){.cards{grid-template-columns:repeat(2,1fr);}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px;}
+.card-label{font-size:0.78rem;color:var(--dim);font-weight:600;letter-spacing:.04em;margin-bottom:8px;}
+.card-value{font-size:1.8rem;font-weight:800;}
+.card-sub{font-size:0.78rem;color:var(--dim);margin-top:4px;}
+.card-icon{font-size:22px;margin-bottom:10px;}
+.card.green .card-value{color:var(--green);}
+.card.orange .card-value{color:var(--walnut);}
+.card.blue .card-value{color:var(--blue);}
+.card.red .card-value{color:var(--red);}
+
+/* 테이블 */
+.table-card{background:var(--panel);border:1px solid var(--line);border-radius:16px;overflow:hidden;margin-bottom:20px;}
+.table-head{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;}
+.table-head h3{font-size:0.95rem;font-weight:700;}
+.refresh-btn{padding:6px 14px;background:rgba(242,162,92,0.12);color:var(--walnut);border:1px solid rgba(242,162,92,0.2);border-radius:8px;font-size:0.82rem;font-weight:600;cursor:pointer;transition:all .15s;font-family:inherit;}
+.refresh-btn:hover{background:rgba(242,162,92,0.2);}
+table{width:100%;border-collapse:collapse;}
+th{padding:10px 20px;text-align:left;font-size:0.78rem;color:var(--dim);font-weight:600;letter-spacing:.04em;background:var(--panel2);}
+td{padding:12px 20px;font-size:0.88rem;border-top:1px solid var(--line);}
+tr:hover td{background:rgba(255,255,255,0.02);}
+.badge{padding:3px 10px;border-radius:999px;font-size:0.75rem;font-weight:700;}
+.badge.open{background:rgba(87,242,135,0.12);color:var(--green);}
+.badge.closed{background:rgba(255,255,255,0.06);color:var(--dim);}
+.badge.cmd{background:rgba(88,101,242,0.12);color:var(--blue);}
+
+/* 로딩 */
+.loading{text-align:center;padding:40px;color:var(--dim);}
+.spinner{display:inline-block;width:24px;height:24px;border:2px solid var(--line);border-top-color:var(--walnut);border-radius:50%;animation:spin .8s linear infinite;margin-bottom:10px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* 빈 상태 */
+.empty{text-align:center;padding:40px;color:var(--dim);font-size:0.9rem;}
+
+/* 알림 */
+.alert{padding:12px 16px;border-radius:10px;font-size:0.88rem;margin-bottom:20px;display:none;}
+.alert.show{display:block;}
+.alert.error{background:rgba(237,66,69,0.12);border:1px solid rgba(237,66,69,0.2);color:#f28b8d;}
+.alert.success{background:rgba(87,242,135,0.12);border:1px solid rgba(87,242,135,0.2);color:#57f287;}
+
+/* 설정 폼 */
+.settings-card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:24px;margin-bottom:20px;}
+.settings-card h3{font-size:0.95rem;font-weight:700;margin-bottom:18px;}
+.form-row{margin-bottom:16px;}
+.form-label{font-size:0.82rem;color:var(--dim);font-weight:600;margin-bottom:6px;display:block;}
+.form-input{width:100%;padding:10px 14px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;color:var(--text);font-size:0.9rem;font-family:inherit;outline:none;transition:border-color .15s;}
+.form-input:focus{border-color:var(--walnut);}
+.save-btn{padding:10px 20px;background:linear-gradient(135deg,var(--walnut),var(--walnut2));color:#2a1a0c;border:none;border-radius:10px;font-weight:700;font-size:0.9rem;cursor:pointer;font-family:inherit;}
+</style>
+</head>
+<body>
+
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon">🌰</div>
+    <div class="logo-text">호두 패널</div>
+  </div>
+  <div class="nav-item active" onclick="showPage('dashboard')"><span class="nav-icon">📊</span> 대시보드</div>
+  <div class="nav-item" onclick="showPage('tickets')"><span class="nav-icon">🎫</span> 티켓 관리</div>
+  <div class="nav-item" onclick="showPage('commands')"><span class="nav-icon">⌨️</span> 명령어 로그</div>
+  <div class="nav-item" onclick="showPage('servers')"><span class="nav-icon">🖥️</span> 서버 목록</div>
+  <div class="nav-item" onclick="showPage('settings')"><span class="nav-icon">⚙️</span> 설정</div>
+  <div class="sidebar-footer"><span class="online-dot"></span>호두봇 온라인</div>
+</nav>
+
+<main class="main">
+
+  <!-- 대시보드 -->
+  <div id="page-dashboard" class="page active">
+    <div class="page-title">📊 대시보드</div>
+    <div class="page-sub">호두 봇 전체 현황을 한눈에 확인해요.</div>
+    <div id="alert-dash" class="alert"></div>
+    <div class="cards" id="stats-cards">
+      <div class="card"><div class="card-icon">🖥️</div><div class="card-label">서버 수</div><div class="card-value" id="stat-servers">-</div></div>
+      <div class="card green"><div class="card-icon">🎫</div><div class="card-label">열린 티켓</div><div class="card-value" id="stat-open-tickets">-</div></div>
+      <div class="card orange"><div class="card-icon">⌨️</div><div class="card-label">총 명령어 사용</div><div class="card-value" id="stat-commands">-</div></div>
+      <div class="card blue"><div class="card-icon">💬</div><div class="card-label">총 메시지</div><div class="card-value" id="stat-messages">-</div></div>
+    </div>
+    <div class="table-card">
+      <div class="table-head"><h3>🕐 최근 명령어</h3><button class="refresh-btn" onclick="loadDashboard()">새로고침</button></div>
+      <div id="recent-commands-body"><div class="loading"><div class="spinner"></div><br>불러오는 중...</div></div>
+    </div>
+  </div>
+
+  <!-- 티켓 -->
+  <div id="page-tickets" class="page">
+    <div class="page-title">🎫 티켓 관리</div>
+    <div class="page-sub">서버에서 생성된 티켓을 관리해요.</div>
+    <div class="table-card">
+      <div class="table-head"><h3>티켓 목록</h3><button class="refresh-btn" onclick="loadTickets()">새로고침</button></div>
+      <div id="tickets-body"><div class="loading"><div class="spinner"></div><br>불러오는 중...</div></div>
+    </div>
+  </div>
+
+  <!-- 명령어 로그 -->
+  <div id="page-commands" class="page">
+    <div class="page-title">⌨️ 명령어 로그</div>
+    <div class="page-sub">사용된 명령어 기록이에요.</div>
+    <div class="table-card">
+      <div class="table-head"><h3>최근 100개</h3><button class="refresh-btn" onclick="loadCommands()">새로고침</button></div>
+      <div id="commands-body"><div class="loading"><div class="spinner"></div><br>불러오는 중...</div></div>
+    </div>
+  </div>
+
+  <!-- 서버 목록 -->
+  <div id="page-servers" class="page">
+    <div class="page-title">🖥️ 서버 목록</div>
+    <div class="page-sub">호두 봇이 들어간 서버 목록이에요.</div>
+    <div class="table-card">
+      <div class="table-head"><h3>서버 목록</h3><button class="refresh-btn" onclick="loadServers()">새로고침</button></div>
+      <div id="servers-body"><div class="loading"><div class="spinner"></div><br>불러오는 중...</div></div>
+    </div>
+  </div>
+
+  <!-- 설정 -->
+  <div id="page-settings" class="page">
+    <div class="page-title">⚙️ 설정</div>
+    <div class="page-sub">패널 설정이에요.</div>
+    <div class="settings-card">
+      <h3>🔑 Supabase 연결 정보</h3>
+      <div class="form-row"><label class="form-label">Supabase URL</label><input class="form-input" id="setting-url" value="https://famxjdollvaztfjsnltf.supabase.co"></div>
+      <div class="form-row"><label class="form-label">Supabase Anon Key</label><input class="form-input" id="setting-key" value="sb_publishable_ukzkUZxt_OKz-q_KO1KjwA_JA8rWjbG"></div>
+      <button class="save-btn" onclick="saveSettings()">저장</button>
+    </div>
+    <div class="settings-card">
+      <h3>ℹ️ 패널 정보</h3>
+      <p style="color:var(--dim);font-size:0.9rem;line-height:1.8;">
+        호두 봇 관리 패널 v1.0<br>
+        Supabase 데이터베이스 연동<br>
+        GitHub Pages에서 호스팅
+      </p>
+    </div>
+  </div>
+
+</main>
+
+<script>
+const SUPABASE_URL = localStorage.getItem('sb_url') || 'https://famxjdollvaztfjsnltf.supabase.co';
+const SUPABASE_KEY = localStorage.getItem('sb_key') || 'sb_publishable_ukzkUZxt_OKz-q_KO1KjwA_JA8rWjbG';
+
+async function query(table, params = '') {
+  const res = await fetch(`${localStorage.getItem('sb_url') || SUPABASE_URL}/rest/v1/${table}${params}`, {
+    headers: { 'apikey': localStorage.getItem('sb_key') || SUPABASE_KEY, 'Authorization': `Bearer ${localStorage.getItem('sb_key') || SUPABASE_KEY}` }
+  });
+  return res.json();
+}
+
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  event.currentTarget.classList.add('active');
+  if (id === 'dashboard') loadDashboard();
+  if (id === 'tickets') loadTickets();
+  if (id === 'commands') loadCommands();
+  if (id === 'servers') loadServers();
+}
+
+function timeAgo(dateStr) {
+  const diff = Math.floor((Date.now() - new Date(dateStr)) / 1000);
+  if (diff < 60) return `${diff}초 전`;
+  if (diff < 3600) return `${Math.floor(diff/60)}분 전`;
+  if (diff < 86400) return `${Math.floor(diff/3600)}시간 전`;
+  return `${Math.floor(diff/86400)}일 전`;
+}
+
+async function loadDashboard() {
+  try {
+    const [stats, tickets, logs] = await Promise.all([
+      query('server_stats'),
+      query('tickets'),
+      query('command_logs', '?order=used_at.desc&limit=10'),
+    ]);
+
+    document.getElementById('stat-servers').textContent = stats.length;
+    document.getElementById('stat-open-tickets').textContent = tickets.filter(t => t.status === 'open').length;
+    document.getElementById('stat-commands').textContent = stats.reduce((a, b) => a + (b.command_count || 0), 0).toLocaleString();
+    document.getElementById('stat-messages').textContent = stats.reduce((a, b) => a + (b.message_count || 0), 0).toLocaleString();
+
+    if (!logs.length) { document.getElementById('recent-commands-body').innerHTML = '<div class="empty">명령어 로그가 없어요</div>'; return; }
+    document.getElementById('recent-commands-body').innerHTML = `
+      <table><thead><tr><th>명령어</th><th>사용자</th><th>서버</th><th>시간</th></tr></thead><tbody>
+      ${logs.map(l => `<tr><td><span class="badge cmd">/${l.command}</span></td><td>${l.username}</td><td>${l.guild_name || 'DM'}</td><td>${timeAgo(l.used_at)}</td></tr>`).join('')}
+      </tbody></table>`;
+  } catch (e) { console.error(e); }
+}
+
+async function loadTickets() {
+  try {
+    const tickets = await query('tickets', '?order=created_at.desc');
+    if (!tickets.length) { document.getElementById('tickets-body').innerHTML = '<div class="empty">티켓이 없어요</div>'; return; }
+    document.getElementById('tickets-body').innerHTML = `
+      <table><thead><tr><th>제목</th><th>생성자</th><th>서버</th><th>상태</th><th>생성일</th></tr></thead><tbody>
+      ${tickets.map(t => `<tr><td>${t.title}</td><td>${t.username}</td><td>${t.guild_id}</td><td><span class="badge ${t.status}">${t.status === 'open' ? '열림' : '닫힘'}</span></td><td>${timeAgo(t.created_at)}</td></tr>`).join('')}
+      </tbody></table>`;
+  } catch (e) { console.error(e); }
+}
+
+async function loadCommands() {
+  try {
+    const logs = await query('command_logs', '?order=used_at.desc&limit=100');
+    if (!logs.length) { document.getElementById('commands-body').innerHTML = '<div class="empty">명령어 로그가 없어요</div>'; return; }
+    document.getElementById('commands-body').innerHTML = `
+      <table><thead><tr><th>명령어</th><th>사용자</th><th>서버</th><th>시간</th></tr></thead><tbody>
+      ${logs.map(l => `<tr><td><span class="badge cmd">/${l.command}</span></td><td>${l.username}</td><td>${l.guild_name || 'DM'}</td><td>${timeAgo(l.used_at)}</td></tr>`).join('')}
+      </tbody></table>`;
+  } catch (e) { console.error(e); }
+}
+
+async function loadServers() {
+  try {
+    const stats = await query('server_stats', '?order=member_count.desc');
+    if (!stats.length) { document.getElementById('servers-body').innerHTML = '<div class="empty">서버 정보가 없어요</div>'; return; }
+    document.getElementById('servers-body').innerHTML = `
+      <table><thead><tr><th>서버 이름</th><th>멤버 수</th><th>명령어 사용</th><th>메시지 수</th><th>마지막 업데이트</th></tr></thead><tbody>
+      ${stats.map(s => `<tr><td>${s.guild_name || s.guild_id}</td><td>${s.member_count || 0}명</td><td>${s.command_count || 0}번</td><td>${s.message_count || 0}개</td><td>${timeAgo(s.updated_at)}</td></tr>`).join('')}
+      </tbody></table>`;
+  } catch (e) { console.error(e); }
+}
+
+function saveSettings() {
+  localStorage.setItem('sb_url', document.getElementById('setting-url').value);
+  localStorage.setItem('sb_key', document.getElementById('setting-key').value);
+  alert('저장됐어! 새로고침하면 적용돼 😊');
+}
+
+// 초기 로드
+loadDashboard();
+</script>
+</body>
+</html>
